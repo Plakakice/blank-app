@@ -1,3 +1,4 @@
+$ pip install -r requirements.txt
 import os, time, math, warnings, random, io
 warnings.filterwarnings("ignore")
 
