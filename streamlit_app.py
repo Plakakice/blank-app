@@ -86,13 +86,10 @@ def make_sequences(data_df, lookback, train_end):
     sc_close = MinMaxScaler()
     train = data_df[data_df["date"] <= pd.to_datetime(train_end)].copy()
     sc_close.fit(train[["close"]].values)
-
     close_all_scaled = pd.Series(
         sc_close.transform(data_df[["close"]].values).ravel(),
-        index=data_df["date"], name="close_scaled"
-    )
+        index=data_df["date"], name="close_scaled")
     y_scaled = close_all_scaled.shift(-1)
-
     Xs, ys, idx = [], [], []
     dq = deque(maxlen=lookback)
     for t, v in close_all_scaled.items():
@@ -104,19 +101,15 @@ def make_sequences(data_df, lookback, train_end):
             Xs.append(np.array(dq))
             ys.append(yv)
             idx.append(t)
-
     X_all = np.array(Xs)
     y_all = np.array(ys)
     idx_all = pd.DatetimeIndex(idx)
-
     mask_train = idx_all <= pd.to_datetime(train_end)
     X_train, y_train = X_all[mask_train], y_all[mask_train]
     X_test,  y_test  = X_all[~mask_train], y_all[~mask_train]
     idx_test = idx_all[~mask_train]
-
     X_train = X_train.reshape(-1, lookback, 1)
     X_test  = X_test.reshape(-1, lookback, 1)
-
     return sc_close, (X_train, y_train), (X_test, y_test), idx_test
 
 
