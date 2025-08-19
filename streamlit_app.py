@@ -310,33 +310,6 @@ if "data" in st.session_state:
                 ax2.legend(); fig2.tight_layout()
                 st.pyplot(fig2, use_container_width=True)
 
-        # Future forecast UI (chỉ chạy khi đã có data & future_df)
-        st.subheader("🔮 Dự báo tương lai")
-        if "model" in st.session_state:
-            if st.button("Tạo dự báo mới với số ngày đã chọn"):
-                st.session_state.future_df = forecast_future(
-                    st.session_state.model, st.session_state.scaler, st.session_state.data, LOOKBACK, FORECAST_DAYS
-                )
-
-            if ("data" in st.session_state and "future_df" in st.session_state and st.session_state.future_df is not None):
-                fdf = st.session_state.future_df
-                base_all = st.session_state.data.set_index("date")["close"]
-                base = base_all[base_all.index.year >= PLOT_START_YEAR]
-
-                figf, axf = plt.subplots(figsize=(12,3.5))
-                axf.plot(base.index, base.values, color="black", label="Historical")
-                axf.plot(fdf["date"], fdf["forecast"], color="green", label=f"Forecast +{len(fdf)}d")
-                axf.set_title("Future Forecast (recursive)")
-                axf.set_xlabel("Date"); axf.set_ylabel("Price")
-                axf.legend(); figf.tight_layout()
-                st.pyplot(figf, use_container_width=True)
-
-                st.download_button(
-                    label=f"⬇️ Tải future_forecast_{len(fdf)}d.csv",
-                    data=fdf.to_csv(index=False).encode(),
-                    file_name=f"future_forecast_{len(fdf)}d.csv",
-                    mime="text/csv"
-                )
 
         # Downloads (metrics & test predictions)
         col_a, col_b = st.columns(2)
