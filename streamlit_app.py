@@ -1,4 +1,4 @@
-# streamlit_app.py — Bản đã sửa lỗi và thêm zoom theo năm + dự báo tương lai
+# streamlit_app.py — Bản đã sửa lỗi và thêm zoom theo năm
 import os, time, math, warnings, random, io
 warnings.filterwarnings("ignore")
 
@@ -40,19 +40,6 @@ EPOCHS     = st.sidebar.number_input("EPOCHS", min_value=1, max_value=500, value
 BATCH      = st.sidebar.number_input("BATCH SIZE", min_value=1, max_value=512, value=32, step=1)
 VERBOSE    = st.sidebar.selectbox("Verbose", options=[0,1,2], index=1)
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔮 Dự báo tương lai")
-PRESET = st.sidebar.selectbox("Chọn nhanh", options=["5 ngày","10 ngày","1 tháng (30)","Tùy chỉnh"], index=0)
-if PRESET == "5 ngày":
-    FORECAST_DAYS = 5
-elif PRESET == "10 ngày":
-    FORECAST_DAYS = 10
-elif PRESET == "1 tháng (30)":
-    FORECAST_DAYS = 30
-else:
-    FORECAST_DAYS = st.sidebar.number_input("Số ngày dự báo", min_value=1, max_value=365, value=7, step=1)
-
-PLOT_START_YEAR = st.sidebar.number_input("Hiển thị biểu đồ từ năm", min_value=2000, max_value=2100, value=2020, step=1)
 
 col_btn1, col_btn2 = st.sidebar.columns(2)
 train_btn = col_btn1.button("🚀 Train")
