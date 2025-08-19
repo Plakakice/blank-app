@@ -213,10 +213,8 @@ if "data" in st.session_state:
                     epochs=EPOCHS,
                     batch_size=BATCH,
                     verbose=VERBOSE,
-                    callbacks=cb_list
-                )
+                    callbacks=cb_list   )
             train_time = time.perf_counter() - t0
-
             st.session_state.model = model
             st.session_state.history = hist.history
 
