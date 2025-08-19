@@ -1,4 +1,4 @@
-# streamlit_app.py — Bản đã sửa lỗi và thêm zoom theo năm
+# streamlit_app.py — Bản đã sửa lỗi và thêm zoom theo năm + dự báo tương lai
 import os, time, math, warnings, random, io
 warnings.filterwarnings("ignore")
 
@@ -40,6 +40,19 @@ EPOCHS     = st.sidebar.number_input("EPOCHS", min_value=1, max_value=500, value
 BATCH      = st.sidebar.number_input("BATCH SIZE", min_value=1, max_value=512, value=32, step=1)
 VERBOSE    = st.sidebar.selectbox("Verbose", options=[0,1,2], index=1)
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔮 Dự báo tương lai")
+PRESET = st.sidebar.selectbox("Chọn nhanh", options=["5 ngày","10 ngày","1 tháng (30)","Tùy chỉnh"], index=0)
+if PRESET == "5 ngày":
+    FORECAST_DAYS = 5
+elif PRESET == "10 ngày":
+    FORECAST_DAYS = 10
+elif PRESET == "1 tháng (30)":
+    FORECAST_DAYS = 30
+else:
+    FORECAST_DAYS = st.sidebar.number_input("Số ngày dự báo", min_value=1, max_value=365, value=7, step=1)
+
+PLOT_START_YEAR = st.sidebar.number_input("Hiển thị biểu đồ từ năm", min_value=2000, max_value=2100, value=2020, step=1)
 
 col_btn1, col_btn2 = st.sidebar.columns(2)
 train_btn = col_btn1.button("🚀 Train")
@@ -269,7 +282,7 @@ if "data" in st.session_state:
 
             # 7) Future forecast ngay sau khi train
             st.session_state.future_df = forecast_future(
-                model, st.session_state.scaler, st.session_state.data, LOOKBACK
+                model, st.session_state.scaler, st.session_state.data, LOOKBACK, FORECAST_DAYS
             )
 
     # 4) Show results
@@ -297,6 +310,33 @@ if "data" in st.session_state:
                 ax2.legend(); fig2.tight_layout()
                 st.pyplot(fig2, use_container_width=True)
 
+        # Future forecast UI (chỉ chạy khi đã có data & future_df)
+        st.subheader("🔮 Dự báo tương lai")
+        if "model" in st.session_state:
+            if st.button("Tạo dự báo mới với số ngày đã chọn"):
+                st.session_state.future_df = forecast_future(
+                    st.session_state.model, st.session_state.scaler, st.session_state.data, LOOKBACK, FORECAST_DAYS
+                )
+
+            if ("data" in st.session_state and "future_df" in st.session_state and st.session_state.future_df is not None):
+                fdf = st.session_state.future_df
+                base_all = st.session_state.data.set_index("date")["close"]
+                base = base_all[base_all.index.year >= PLOT_START_YEAR]
+
+                figf, axf = plt.subplots(figsize=(12,3.5))
+                axf.plot(base.index, base.values, color="black", label="Historical")
+                axf.plot(fdf["date"], fdf["forecast"], color="green", label=f"Forecast +{len(fdf)}d")
+                axf.set_title("Future Forecast (recursive)")
+                axf.set_xlabel("Date"); axf.set_ylabel("Price")
+                axf.legend(); figf.tight_layout()
+                st.pyplot(figf, use_container_width=True)
+
+                st.download_button(
+                    label=f"⬇️ Tải future_forecast_{len(fdf)}d.csv",
+                    data=fdf.to_csv(index=False).encode(),
+                    file_name=f"future_forecast_{len(fdf)}d.csv",
+                    mime="text/csv"
+                )
 
         # Downloads (metrics & test predictions)
         col_a, col_b = st.columns(2)
