@@ -39,6 +39,18 @@ EPOCHS     = st.sidebar.number_input("EPOCHS", min_value=1, max_value=500, value
 BATCH      = st.sidebar.number_input("BATCH SIZE", min_value=1, max_value=512, value=32, step=1)
 VERBOSE    = st.sidebar.selectbox("Verbose", options=[0,1,2], index=1)
 
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔮 Dự báo tương lai")
+PRESET = st.sidebar.selectbox("Chọn nhanh", options=["5 ngày","10 ngày","1 tháng (30)","Tùy chỉnh"], index=0)
+if PRESET == "5 ngày":
+    FORECAST_DAYS = 5
+elif PRESET == "10 ngày":
+    FORECAST_DAYS = 10
+elif PRESET == "1 tháng (30)":
+    FORECAST_DAYS = 30
+else:
+    FORECAST_DAYS = st.sidebar.number_input("Số ngày dự báo", min_value=1, max_value=365, value=7, step=1)
+
 col_btn1, col_btn2 = st.sidebar.columns(2)
 train_btn = col_btn1.button("🚀 Train")
 reset_btn = col_btn2.button("🔄 Reset")
@@ -146,6 +158,27 @@ def plot_performance(data_df, train_end, idx_test, y_pred, title="Model Performa
     ax.legend(); fig.tight_layout()
     return fig
 
+
+def forecast_future(model, scaler, data_df, lookback, n_days):
+    """Dự báo n bước tới bằng phương pháp cuộn (recursive).
+    Trả về DataFrame gồm cột date và forecast.
+    """
+    series_scaled = scaler.transform(data_df[["close"]].values).ravel()
+    window = series_scaled[-lookback:].tolist()
+    preds = []
+    dates = []
+    last_date = data_df["date"].iloc[-1]
+
+    for i in range(n_days):
+        x = np.array(window[-lookback:]).reshape(1, lookback, 1)
+        y_scaled = model.predict(x, verbose=0).ravel()[0]
+        y = scaler.inverse_transform([[y_scaled]]).ravel()[0]
+        preds.append(y)
+        dates.append(last_date + pd.Timedelta(days=i+1))
+        window.append(y_scaled)
+
+    return pd.DataFrame({"date": dates, "forecast": preds})
+
 # =========================
 # Main app flow
 # =========================
@@ -167,7 +200,7 @@ elif custom_path:
 
 # Session state
 if reset_btn:
-    for k in ["data", "scaler", "X_train", "y_train", "X_test", "y_test", "idx_test", "model", "history", "metrics", "pred_df"]:
+    for k in ["data", "scaler", "X_train", "y_train", "X_test", "y_test", "idx_test", "model", "history", "metrics", "pred_df", "future_df"]:
         if k in st.session_state:
             del st.session_state[k]
     st.experimental_rerun()
@@ -227,7 +260,7 @@ if "data" in st.session_state:
             st.session_state.model = model
             st.session_state.history = hist.history
 
-            # 4) Predict & inverse transform
+            # 4) Predict & inverse transform (test)
             y_pred_scaled = model.predict(st.session_state.X_test, verbose=0).ravel()
             y_pred = st.session_state.scaler.inverse_transform(y_pred_scaled.reshape(-1,1)).ravel()
             y_true = st.session_state.scaler.inverse_transform(st.session_state.y_test.reshape(-1,1)).ravel()
@@ -247,6 +280,9 @@ if "data" in st.session_state:
             })
             st.session_state.pred_df = pred_df
 
+            # 7) Future forecast ngay sau khi train
+            st.session_state.future_df = forecast_future(model, st.session_state.scaler, st.session_state.data, LOOKBACK, FORECAST_DAYS)
+
     # 4) Show results
     if "metrics" in st.session_state and "pred_df" in st.session_state:
         m = st.session_state.metrics
@@ -257,11 +293,11 @@ if "data" in st.session_state:
         c3.metric("MAPE", f"{m['MAPE_%']:.2f}%")
         c4.metric("Thời gian train", f"{m['Train_Time_s']:.1f}s")
 
-        # Plot
+        # Plot test performance
         fig = plot_performance(st.session_state.data, TRAIN_END, st.session_state.idx_test, pred_df["y_pred"].values)
         st.pyplot(fig, use_container_width=True)
 
-        # History chart (loss)
+        # Learning curve
         if "history" in st.session_state:
             hist = st.session_state.history
             if "loss" in hist and "val_loss" in hist:
@@ -272,7 +308,35 @@ if "data" in st.session_state:
                 ax2.legend(); fig2.tight_layout()
                 st.pyplot(fig2, use_container_width=True)
 
-        # Downloads
+        # Future forecast UI
+        st.subheader("🔮 Dự báo tương lai")
+        if "model" in st.session_state:
+            # Cho phép đổi số ngày không cần train lại
+            if st.button("Tạo dự báo mới với số ngày đã chọn"):
+                st.session_state.future_df = forecast_future(st.session_state.model, st.session_state.scaler, st.session_state.data, LOOKBACK, FORECAST_DAYS)
+            if "future_df" in st.session_state and st.session_state.future_df is not None:
+                fdf = st.session_state.future_df
+                st.dataframe(fdf, use_container_width=True)
+
+                # Plot nối tiếp chuỗi gốc
+                figf, axf = plt.subplots(figsize=(12,3.5))
+                base = st.session_state.data.set_index("date")["close"]
+                axf.plot(base.index, base.values, color="black", label="Historical")
+                axf.plot(fdf["date"], fdf["forecast"], color="green", label=f"Forecast +{len(fdf)}d")
+                axf.set_title("Future Forecast (recursive)")
+                axf.set_xlabel("Date"); axf.set_ylabel("Price")
+                axf.legend(); figf.tight_layout()
+                st.pyplot(figf, use_container_width=True)
+
+                # Download future csv
+                st.download_button(
+                    label=f"⬇️ Tải future_forecast_{len(fdf)}d.csv",
+                    data=fdf.to_csv(index=False).encode(),
+                    file_name=f"future_forecast_{len(fdf)}d.csv",
+                    mime="text/csv"
+                )
+
+        # Downloads (metrics & test predictions)
         col_a, col_b = st.columns(2)
         with col_a:
             st.download_button(
@@ -290,7 +354,7 @@ if "data" in st.session_state:
                 mime="text/csv"
             )
 
-        # Save model (optional)
+        # Save/Load model (optional)
         with st.expander("💾 Lưu/Load mô hình (tùy chọn)"):
             save_col, load_col = st.columns(2)
             if save_col.button("Lưu mô hình vào outputs/model.keras"):
