@@ -100,9 +100,7 @@ def load_data(file_obj_or_path, date_col, price_col):
 
 figf, axf = plt.subplots(figsize=(12,3.5))
 base_all = st.session_state.data.set_index("date")["close"]
-start_dt = pd.Timestamp(f"{int(SHOW_FROM_YEAR)}-01-01")
-base = base_all.loc[start_dt:]
-base = base[base.index.year >= PLOT_START_YEAR]
+base = base_all[base_all.index.year >= PLOT_START_YEAR]
 axf.plot(base.index, base.values, color="black", label="Historical")
 axf.plot(fdf["date"], fdf["forecast"], color="green", label=f"Forecast +{len(fdf)}d")
 axf.set_title("Future Forecast (recursive)")
