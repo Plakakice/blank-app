@@ -269,7 +269,7 @@ if "data" in st.session_state:
 
             # 7) Future forecast ngay sau khi train
             st.session_state.future_df = forecast_future(
-                model, st.session_state.scaler, st.session_state.data, LOOKBACK, FORECAST_DAYS
+                model, st.session_state.scaler, st.session_state.data, LOOKBACK
             )
 
     # 4) Show results
